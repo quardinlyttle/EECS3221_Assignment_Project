@@ -287,6 +287,7 @@ int readProcess(process *dest) {
     /* save these parameters to the process */
     dest->pid = pid;
     dest->arrivalTime = arrivalTime;
+    dest->lastRequeTime = 0;
     dest->bursts[0].length = firstBurst;
     dest->bursts[0].step = 0;
     dest->numberOfBursts = 1;

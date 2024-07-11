@@ -102,9 +102,26 @@ int main(){
         for (int i=0;i<NUMBER_OF_PROCESSORS;i++){
             /*Check if there is anything in the readyQ*/
             if(readyQ->size > 0){
+
+                /*Check which CPU is not busy*/
                 if(!(cups[i].cpuRunning)|| cpus[i].nextReadyTime >= time){
+
+                    /*Check if there was a process and move to IO since its done.*/
+                    if(currentProcess != NULL){
+                        enqueueProcess(DeviceQ,currentProcess);
+                    }
+
+                    /*take new process from ReadyQ*/
                     currentProcess = readyQ->front;
                     dequeueProcess(currentProcess);
+
+                    if(currentProcess->startTime == 0){
+                        currentProcess->startTime = time;
+                        currentProcess->waitingTime = currentProcess->startTime - currentProcess->arrivalTime;
+                     } 
+                    else{
+                        currentProcess->waitingTime += (time-currentProcess->lastRequeTime);
+                    }
 
                 }
 
