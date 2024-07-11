@@ -50,6 +50,7 @@ struct process {
     int pid;                    /* process id */
     int arrivalTime;            /* time process arrives in system */
     int startTime;              /* time process begins executing */
+    int lastRequeTime;          /* the last time the process was added to readyQ waiting*/
     int endTime;                /* time process finishes executing */
     int waitingTime;            /* total time process spends waiting */
     int currentBurst;           /* index of current burst in `bursts' array */
