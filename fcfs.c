@@ -15,6 +15,8 @@ YorkU email address: lyttleqd@my.yorku.ca
 #include <unistd.h>
 #include <errno.h>
 
+#define NUMBER_OF_IO 3
+
 struct CPUCore{
     process *currentProcess;
     int totalCPUBurst;
@@ -71,11 +73,14 @@ int main(){
     }
 
     /*Initialize IO*/
-    struct IO io;
-    io.totalIOBurst=0;
-    io.IORunning=false;
-    io.nextReadyTime=0;
-    io.currentProcess=NULL;
+    struct IO io[NUMBER_OF_IO];
+    for(int i=0;i<NUMBER_OF_IO;i++){
+        io[i].totalIOBurst=0;
+        io[i].IORunning=false;
+        io[i].nextReadyTime=0;
+        io[i].currentProcess=NULL;
+    }
+
 
     /*Initialize arrivals*/
     struct Arrival arrivals;
@@ -93,6 +98,9 @@ int main(){
     /*Each while loop will simulate one millisecond of time, assuming everything in this while loop is happeing in parrallel*/
     while(systemRunning){
         printf("Timestamp: %d\n",time);
+        printf("DeviceQ size = %d\n",DeviceQ->size);
+        printf("ReadyQ size = %d\n",readyQ->size);
+        printf("CompletedQ size = %d\n",completedQ->size);
 
         /*account for when all processes are done*/
         if(numberOfProcesses<=arrivals.arrival_number)
@@ -103,7 +111,7 @@ int main(){
         /*Adding processes to ready Q based on arrival time*/
         if(arrivals.arrivedProcess != NULL && arrivals.arrivedProcess->arrivalTime >= time){
             enqueueProcess(readyQ,arrivals.arrivedProcess);
-            printf("Process %d added to readyQ\n",arrivals.arrivedProcess->pid);
+            printf("Process %d added to readyQ from arrivals\n",arrivals.arrivedProcess->pid);
             arrivals.arrival_number++;
             if (arrivals.arrival_number < numberOfProcesses) {
                 arrivals.arrivedProcess = &processes[arrivals.arrival_number];
@@ -112,29 +120,39 @@ int main(){
             }
         }
 
-        /*Checking if IO is running*/
-        if(io.nextReadyTime < time)
-        {
-            io.IORunning=true;
-        }
-        else{
-            io.IORunning=false;
-        }
 
-        if(!(io.IORunning)){
-            if(io.currentProcess!=NULL){
-                io.currentProcess->currentBurst++;
-                enqueueProcess(readyQ,io.currentProcess);
-                printf("Process %d added to ReadyQ",io.currentProcess->pid);
+        /*IO Execution Simulation*/
+        for (int i=0;i<NUMBER_OF_IO;i++){
+            /*Checking if IO is running*/
+            if(io[i].nextReadyTime > time)
+            {
+                io[i].IORunning=true;
+                printf("IO is running and will be free at %d\n",io[i].nextReadyTime);
             }
+            else{
+                io[i].IORunning=false;
+                printf("IO is free\n");
+            }
+
             
-            /*IO checks if anthing in deviceQ*/
-            if(DeviceQ->size > 0){
-                io.currentProcess=DeviceQ->front->data;
-                dequeueProcess(DeviceQ);
-                io.nextReadyTime = time + io.currentProcess->bursts[io.currentProcess->currentBurst].length;
-            }
+            if(!(io[i].IORunning)){
+                if(io[i].currentProcess!=NULL){
+                    io[i].currentProcess->currentBurst++;
+                    enqueueProcess(readyQ,io[i].currentProcess);
+                    printf("Process %d added to ReadyQ from IO\n",io[i].currentProcess->pid);
+                }
+                
+                /*IO checks if anthing in deviceQ*/
+                if(DeviceQ->size > 0){
+                    io[i].currentProcess=DeviceQ->front->data;
+                    dequeueProcess(DeviceQ);
+                    io[i].nextReadyTime = time + io[i].currentProcess->bursts[io[i].currentProcess->currentBurst].length;
+                    io[i].totalIOBurst+=io[i].currentProcess->bursts[io[i].currentProcess->currentBurst].length;
+                    io[i].nextReadyTime/=100;
+                    printf("Process %d is currently in IO\n",io[i].currentProcess->pid);
+                }
 
+            }
         }
 
         /*CPU Execution Simulation*/
@@ -204,7 +222,7 @@ int main(){
             }
         }
 
-        time++;
+        time+=20;
 
     }
 
