@@ -43,6 +43,7 @@ int main(){
 
     while ((status=readProcess(&processes[numberOfProcesses]))!=0)  {
          if(status==1)  numberOfProcesses ++;
+         printf("Process %d added to array\n",processes[numberOfProcesses-1].pid);
     } 
     qsort(processes, numberOfProcesses, sizeof(process), compareByArrival);
 
@@ -58,12 +59,15 @@ int main(){
     process_queue *completedQ = (process_queue *)malloc(sizeof(process_queue));
     initializeProcessQueue(completedQ);
 
+    printf("Queues intialized\n");
+
     /*Initialize CPUs*/
     struct CPUCore cpus[NUMBER_OF_PROCESSORS];
     for(int i=0;i<NUMBER_OF_PROCESSORS;i++){
         cpus[i].totalCPUBurst=0;
         cpus[i].cpuRunning=false;
         cpus[i].nextReadyTime=0;
+        cpus[i].currentProcess=NULL;
     }
 
     /*Initialize IO*/
@@ -71,11 +75,15 @@ int main(){
     io.totalIOBurst=0;
     io.IORunning=false;
     io.nextReadyTime=0;
+    io.currentProcess=NULL;
 
     /*Initialize arrivals*/
     struct Arrival arrivals;
     arrivals.arrival_number=0;
-    arrivals.arrivedProcess=&processes[0];
+    arrivals.arrivedProcess=NULL;
+    if(numberOfProcesses>0){
+        arrivals.arrivedProcess=&processes[0];
+    }
 
 
     /*Intitaize Time and running system*/
@@ -84,19 +92,24 @@ int main(){
 
     /*Each while loop will simulate one millisecond of time, assuming everything in this while loop is happeing in parrallel*/
     while(systemRunning){
+        printf("Timestamp: %d\n",time);
 
         /*account for when all processes are done*/
-        if(numberOfProcesses<arrivals.arrival_number)
+        if(numberOfProcesses<=arrivals.arrival_number)
         {
             systemRunning = false;
         }
 
         /*Adding processes to ready Q based on arrival time*/
-        if(arrivals.arrivedProcess->arrivalTime >= time){
+        if(arrivals.arrivedProcess != NULL && arrivals.arrivedProcess->arrivalTime >= time){
             enqueueProcess(readyQ,arrivals.arrivedProcess);
             printf("Process %d added to readyQ\n",arrivals.arrivedProcess->pid);
             arrivals.arrival_number++;
-            arrivals.arrivedProcess=&processes[arrivals.arrival_number];
+            if (arrivals.arrival_number < numberOfProcesses) {
+                arrivals.arrivedProcess = &processes[arrivals.arrival_number];
+            } else {
+                arrivals.arrivedProcess = NULL;
+            }
         }
 
         /*Checking if IO is running*/
@@ -112,6 +125,7 @@ int main(){
             if(io.currentProcess!=NULL){
                 io.currentProcess->currentBurst++;
                 enqueueProcess(readyQ,io.currentProcess);
+                printf("Process %d added to ReadyQ",io.currentProcess->pid);
             }
             
             /*IO checks if anthing in deviceQ*/
@@ -127,22 +141,27 @@ int main(){
         for (int i=0;i<NUMBER_OF_PROCESSORS;i++){
 
             /*Check which CPU is not busy*/
-            if(cpus[i].nextReadyTime < time){
+            if(cpus[i].nextReadyTime > time){
                 cpus[i].cpuRunning=true;
+                printf("CPU %d is busy and will be free at %d\n",i,cpus[i].nextReadyTime);
             }
             else{
                 cpus[i].cpuRunning=false;
+                printf("CPU %d is free at %d\n",i,cpus[i].nextReadyTime);
             }
 
             /*Runs if the CPU is free*/
-            if(!(cpus[i].cpuRunning)){
+            if(cpus[i].cpuRunning==false){
+                printf("CPU RUnning var= %d",cpus[i].cpuRunning);
+                printf("CPU %d is running\n",i);
 
                 /*Check if there was a process and move to IO since its done.*/
                 if(cpus[i].currentProcess != NULL && (cpus[i].currentProcess->currentBurst < cpus[i].currentProcess->numberOfBursts)){
                     enqueueProcess(DeviceQ,cpus[i].currentProcess);
+                    printf("Process %d added to DeviceQ\n",cpus[i].currentProcess->pid);
                 }
                 /*Add process to the list of completed Processes*/
-                else{
+                else if(cpus[i].currentProcess != NULL && (cpus[i].currentProcess->currentBurst >= cpus[i].currentProcess->numberOfBursts)) {
                     printf("ending process %d\n",cpus[i].currentProcess->pid);
                     //cpus[i].currentProcess->endTime =time;
                     enqueueProcess(completedQ,cpus[i].currentProcess);
@@ -174,8 +193,12 @@ int main(){
                         cpus[i].nextReadyTime = time + cpus[i].currentProcess->bursts[cpus[i].currentProcess->currentBurst].length;
                         cpus[i].currentProcess->currentBurst++;
                     }
-                    break;
+                    printf("CPU %d will be available at timestamp: %d\n",i,cpus[i].nextReadyTime);
                     
+                }
+                else{
+                    printf("CPU %d is free\n",i);
+                    cpus[i].cpuRunning=false;
                 }
 
             }
@@ -206,6 +229,12 @@ int main(){
     printf("Time all processes finished:\t%d milliseconds\n",completedQ->back->data->endTime);
     printf("Average CPU Utilization:\t%f%%\nNumber of context switches:\t0\n",avgCPU);
     printf("PID of the last process to finish:\t%d\n",lastpid);
+    
+    free(readyQ);
+    free(DeviceQ);
+    free(completedQ);
+
+    return 0;
 
 }
 
