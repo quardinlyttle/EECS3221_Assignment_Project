@@ -270,6 +270,7 @@ int readProcess(process *dest) {
     int firstBurst = 0;
     int cpuBurstLength = 0;
     int ioBurstLength = 0;
+
     
     char *line = readLine();
     char *ptr = line;
@@ -291,6 +292,7 @@ int readProcess(process *dest) {
     dest->bursts[0].length = firstBurst;
     dest->bursts[0].step = 0;
     dest->numberOfBursts = 1;
+    dest->currentBurst =-1;
     
     /* read in the rest of the io and cpu bursts in pairs ([IO, CPU], ...) */
     while (!empty(ptr)) {
